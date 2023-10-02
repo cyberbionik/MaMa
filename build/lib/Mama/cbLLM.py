@@ -1,6 +1,6 @@
 import logging
 from langchain.llms import OpenAIChat, OpenAI
-from config import Configuration 
+from Mama.config import Configuration 
 from langchain.chains import StuffDocumentsChain, LLMChain
 from langchain import PromptTemplate
 

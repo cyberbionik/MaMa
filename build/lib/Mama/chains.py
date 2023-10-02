@@ -4,7 +4,7 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.schema import messages_from_dict, messages_to_dict
 from langchain.chains import RetrievalQA
-from utils import get_session, save_chat_history
+from Mama.utils import get_session, save_chat_history
 from langchain.memory import ConversationBufferMemory
 from langchain.memory.chat_message_histories.in_memory import ChatMessageHistory
 from Mama.cbLLM import cbLLM

@@ -2,8 +2,8 @@ import os
 from langchain import PromptTemplate
 import shutil
 import logging
-from cbLLM import cbLLM
-from utils import generate_random_token, get_session, save_kb
+from Mama.cbLLM import cbLLM
+from Mama.utils import generate_random_token, get_session, save_kb
 from langchain.chains.summarize import load_summarize_chain
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
