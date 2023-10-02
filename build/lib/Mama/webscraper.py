@@ -8,7 +8,7 @@ from langchain.document_loaders import AsyncChromiumLoader # type: ignore
 from langchain.document_transformers import BeautifulSoupTransformer # type: ignore
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from urllib3 import disable_warnings
-from train import train_on_documents
+from Mama.train import train_on_documents
 from langchain.vectorstores import FAISS
 #from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.embeddings import HuggingFaceEmbeddings

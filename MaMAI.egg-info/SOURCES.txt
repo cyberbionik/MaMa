@@ -1,3 +1,4 @@
+.gitignore
 LICENSE
 PyPI-Recovery-Codes-cyberbionik-2023-10-02T10_30_49.507989.txt
 README.md
@@ -16,3 +17,5 @@ Mama/scanloinc.py
 Mama/train.py
 Mama/utils.py
 Mama/webscraper.py
+dist/MaMAI-1.0-py3-none-any.whl
+dist/MaMAI-1.0.tar.gz
