@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict
-from utils import get_db, save_db
+from Mama.utils import get_db, save_db
 
 
 class Configuration() :
