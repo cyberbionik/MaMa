@@ -7,7 +7,7 @@ from langchain.chains import RetrievalQA
 from utils import get_session, save_chat_history
 from langchain.memory import ConversationBufferMemory
 from langchain.memory.chat_message_histories.in_memory import ChatMessageHistory
-from cbLLM import cbLLM
+from Mama.cbLLM import cbLLM
 import logging
 import os
 from flask import make_response
