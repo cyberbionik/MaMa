@@ -1,11 +1,12 @@
 Metadata-Version: 2.1
-Name: MaMa
-Version: 0.1
+Name: MaMAI
+Version: 1.0
 Summary: MaMa is a AI wrapper for different tasks.
 Home-page: https://github.com/cyberbionik/MaMa
 Author: Francesco Bellifemine
 Author-email: effebi.co@gmail.com
 Description-Content-Type: text/markdown
+License-File: LICENSE
 
 MaMa
 
