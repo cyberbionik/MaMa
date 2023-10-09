@@ -77,6 +77,28 @@ class Configuration() :
         db["CHATBOT"] = cbs
 
         save_db(db)
+
+    def get_chatbot(title:str = "") -> [] :
+        '''
+        Returns Chatbot parameters from db.json
+        if title == "" than returns all Chatbot
+        '''
+        db = get_db()
+        if not db:
+            return []
+        
+        cbs = db.get("CHATBOT", [])
+        if not cbs:
+            return []
+        
+        if not title:
+            return cbs
+        else:
+            for chatbot in cbs:
+                chat_title = chatbot.get("chat_title", "")
+                if chat_title and title == chat_title
+                    return [chatbot]
+        return []
         
     def get_prompt_template(self):
         return self.prompt_template
