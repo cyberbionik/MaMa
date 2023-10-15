@@ -73,12 +73,20 @@ class Configuration() :
         if not cbs:
             cbs = [chatbot]
         else:
-            cbs.append(chatbot)
+            found = False
+            for i, cb in enumerate(cbs):
+                if cb['chat_id'] == chatbot['chat_id']:
+                    found = True
+                    cbs[i] = chatbot
+                    break
+            if not found:
+                cbs.append(chatbot)
+                            
         db["CHATBOT"] = cbs
 
         save_db(db)
 
-    def get_chatbot(title:str = "") -> [] :
+    def get_chatbot(self, id)  -> [] :
         '''
         Returns Chatbot parameters from db.json
         if title == "" than returns all Chatbot
@@ -91,12 +99,12 @@ class Configuration() :
         if not cbs:
             return []
         
-        if not title:
+        if not id:
             return cbs
         else:
             for chatbot in cbs:
-                chat_title = chatbot.get("chat_title", "")
-                if chat_title and title == chat_title
+                chat_id = chatbot.get("chat_id", "")
+                if chat_id and id == chat_id:
                     return [chatbot]
         return []
         
