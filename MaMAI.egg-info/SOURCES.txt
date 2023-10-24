@@ -34,3 +34,5 @@ dist/MaMAI-2.5-py3-none-any.whl
 dist/MaMAI-2.5.tar.gz
 dist/MaMAI-2.6-py3-none-any.whl
 dist/MaMAI-2.6.tar.gz
+dist/MaMAI-2.7-py3-none-any.whl
+dist/MaMAI-2.7.tar.gz

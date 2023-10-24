@@ -6,6 +6,8 @@ import json
 import os
 import shutil
 
+DB_URL = 'database/db.json'
+
 def generate_random_token(len) -> str :
     # choose from all lowercase letter
     letters = string.ascii_lowercase
@@ -83,7 +85,7 @@ def save_session(db, user_id, session_id, in_session):
                     db["users"][idx_user]["sessions"][idx_session] = in_session
                     break
     
-    with open('db.json', 'w', encoding='utf-8') as file:
+    with open(DB_URL, 'w', encoding='utf-8') as file:
         json.dump(db, file, ensure_ascii=False, indent=4)
 
 def modify_session(user_id, session_id, title=None) :
@@ -101,7 +103,7 @@ def modify_session(user_id, session_id, title=None) :
             for idx_session, session in enumerate(sessions):
                 if session["id"] == session_id:
                     db["users"][idx_user]["sessions"][idx_session]["title"] = title
-                    with open('db.json', 'w', encoding='utf-8') as file:
+                    with open(DB_URL, 'w', encoding='utf-8') as file:
                         json.dump(db, file, ensure_ascii=False, indent=4)
                     return "Session Title Changed"
     return ""
@@ -110,17 +112,17 @@ def modify_session(user_id, session_id, title=None) :
 def get_db() :
     try:
         logging.debug(os.listdir())
-        with open('./db.json', 'r', encoding='utf-8') as f:
+        with open(DB_URL, 'r', encoding='utf-8') as f:
             db = json.load(f)
             return db
     except FileNotFoundError:
-        logging.info("No db.json found")
+        logging.info(f"No {DB_URL} found")
     except json.JSONDecodeError:
-        logging.info("Error decoding JSON from db.json")
+        logging.info(f"Error decoding JSON from {DB_URL}")
     return None
 
 def save_db(db):
-    with open( './db.json', "w") as f:
+    with open(DB_URL, "w") as f:
         json.dump(db, f, indent=4)
 
 
@@ -177,7 +179,7 @@ def new_session(user_id, kb_id):
     user_found["sessions"].append(session)
 
     # salva le modifiche nel database
-    with open('db.json', 'w', encoding='utf-8') as f:
+    with open(DB_URL, 'w', encoding='utf-8') as f:
         json.dump(db, f, ensure_ascii=False, indent=4)
 
     return session
@@ -198,7 +200,7 @@ def delete_session(user_id, session_id, kb_dir) -> bool :
                             kb = session["kb_id"]
                             del sessions[idx]
                                 # salva le modifiche nel database
-                            with open('db.json', 'w', encoding='utf-8') as f:
+                            with open(DB_URL, 'w', encoding='utf-8') as f:
                                 json.dump(db, f, ensure_ascii=False, indent=4)
                             shutil.rmtree(kb_dir+"/"+kb)
                             return True
@@ -212,10 +214,10 @@ def delete_session(user_id, session_id, kb_dir) -> bool :
 
 def read_configuration(item):
     try:
-        with open('db.json', 'r', encoding='utf-8') as f:
+        with open(DB_URL, 'r', encoding='utf-8') as f:
             db = json.load(f)
     except:
-        logging.info("No db.json found")
+        logging.info(f"No {DB_URL} found")
         return
     
     if not db:
