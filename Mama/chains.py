@@ -83,16 +83,15 @@ def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
       ##### così da fornire gli esatti link che ha usato la LLM. 
       ##### {history} è la memory_key di ConversationBufferMemory
     ##  --------------------------------------------------------------------------------------------------------------------------------
-    prompt = "based on the context please return an answer to user question. I you don't know the answer simply say I don't know. ANSWER:"
-    template = cb_llm.get_prompt_template()
-    input_variables = []
-    if template:
-        input_variables = cb_llm.get_input_variables()
     
-    prompt = PromptTemplate(template=template, input_variables=input_variables)
+    prompt = cb_llm.get_prompt_template()
+    #input_variables = []
+    #if template:
+    #    input_variables = cb_llm.get_input_variables()
+    
+    #prompt = PromptTemplate(template=template, input_variables=input_variables)
     logging.info(prompt)
 
-    
     ##chain = load_qa_chain(llm, chain_type="stuff", memory=memory)
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
