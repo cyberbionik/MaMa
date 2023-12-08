@@ -7,11 +7,11 @@ from Mama.utils import generate_random_token, get_session, save_kb
 from langchain.chains.summarize import load_summarize_chain
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-#from langchain.document_loaders import DirectoryLoader
 from langchain.document_loaders import PyPDFDirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from typing import List
+from langchain.document_loaders.csv_loader import CSVLoader
 
 def index_documents(folder) -> List[Document] :
     logging.info("Reading folder: "+folder)
@@ -66,7 +66,7 @@ def train_on_documents(kb_dir, kb_id, src_dir="", documents = [], title="", desc
                 SOURCE LINK:"""
             prompt = PromptTemplate(template=prompt_template, input_variables=["text"])
             chain = load_summarize_chain(llm, chain_type='map_reduce', map_prompt=prompt)
-            summary = chain.run(documents)
+            summary = chain.run(documents[0])
             
             logging.info(f"---- SUMMARY PRODOTTO: {summary}")
             
@@ -117,12 +117,58 @@ def train_single_doc(kb_root_dir, kb_id, source_dir) -> str:
     summary = ""
     try:
         documents = index_documents(source_dir)
-        summary = train_on_documents(kb_root_dir, kb_id, documents, return_summary=True)
+        if not documents:
+            logging.info(f"Nessun documento trovato")
+            return ""
+        
+        summary = train_on_documents(kb_root_dir, kb_id, src_dir="", documents=documents, title="", description="", return_summary=True)
         
     except Exception as e:
         logging.info(f"Errore nel caricare il documento: {e}")
 
     return summary
+
+def train_on_csv(kb_root_dir, kb_id, title, description, filename, field_names, delimiter, quote_char, source_column):
+    try:
+        csv_args={
+            'delimiter': delimiter,
+            'quotechar': quote_char,
+            'fieldnames': field_names
+        }
+
+        kb_path = kb_root_dir+"/"+kb_id
+
+        loader = CSVLoader(file_path=filename, csv_args=csv_args, source_column=source_column)
+        if not loader:
+            logging.info(f"No Loader found")
+            return False
+
+        data = loader.load()
+
+        if not data:
+            logging.info(f"Nessun dato trovato")
+            return False
+        
+        if os.path.exists(kb_path):
+            faiss = FAISS.load_local(kb_path, embeddings=HuggingFaceEmbeddings())
+            faiss.add_documents(documents=data)
+           
+        else:
+            faiss = FAISS.from_documents(documents=data, embedding=HuggingFaceEmbeddings())
+
+        logging.debug("Saving index...")
+        if faiss:
+            faiss.save_local(kb_path)
+            save_kb(kb_id, title, description)
+        else:
+            logging.debug(f"Error saving on FAISS {kb_path}")
+            return False
+
+    except Exception as e:
+        logging.info(f"Errore nel caricare il documento: {e}")
+        return False
+
+    return True
 
 
 def _save_vector_store(kb_dir, kb_id, documents, title, description):

@@ -1,5 +1,5 @@
-from langchain import PromptTemplate
-from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+import logging
+import os
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.schema import messages_from_dict, messages_to_dict
@@ -8,12 +8,37 @@ from Mama.utils import get_session, save_chat_history
 from langchain.memory import ConversationBufferMemory
 from langchain.memory.chat_message_histories.in_memory import ChatMessageHistory
 from Mama.cbLLM import cbLLM
-import logging
-import os
-from flask import make_response
+from Mama.config import Configuration
 
 ### https://python.langchain.com/docs/use_cases/question_answering/ 
+
 def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
+    """
+    Gets an input text and generate a response from GenAI.
+
+    STEP 1. Uses a FAISS vector store to retrieve documents
+    STEP 2. Reconstruct Memory
+    STEP 3. Dynamically creates the LLM (from configuration file db.json)
+    STEP 4. Uses RetrievalQA to generate the response
+
+    Parameters:
+        user_id: user_id associated to the conversation
+        session_id: session_id is the Knowledge Base name associated to the session (present in config file db.json)
+        kb_dir: directory where the Knoweldge Base is located
+        chat_history_len : max lenght for memory. After that chat_history is cutted off starting from the older one
+
+    Returns:
+        {
+            "answer": the answer in string format,
+            "documents" : a JSON with this syntax: {"page_content":extract from retrieved document, "source" : the source of the document}
+            "chat_history" : [] (TODO:)
+        }
+
+    configurations (from db.json):
+        search_type: serach_type parameter for retriever
+        num_docs: number of docs to retrieve from Vector Store
+        prompt: from db.json
+    """
 
     ##  --------------------------------------------------------------------------------------------------------------------------------
     ##1 Load Retriever. Retiever can be dynamically configured to access different sources. db.json containes a parameter: Retriever_type
@@ -22,22 +47,27 @@ def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
 
     session = get_session(user_id, session_id)
     if not session:
-        return make_response("no session", 400)
+        return _err_msg("No Session")
 
     kb = kb_dir + "/" + session["kb_id"]
     if not kb:
-        errMsg = f"ERR003. Non ho potuto caricare la Knowledge base {kb}"
-        logging.info(errMsg)
-        return  make_response(errMsg, 500)
+        return _err_msg(errMsg = f"ERR003. Error Loading Knowledge base {kb}")
     
     db = ""
     if os.path.exists(kb) :
         embeddings = HuggingFaceEmbeddings()
         db = FAISS.load_local(kb, embeddings=embeddings)
     else:
-        return None
+        return _err_msg(errMsg = f"ERR003. Error Loading Knowledge base {kb}")
 
-    retriever = db.as_retriever(search_type="similarity", search_kwargs={"k":2}) #TODO: Use dynamic retriever from configurations
+    config = Configuration()
+    search_type = config.get("search_type")
+    if not search_type:
+        search_type = "similarity"
+    num_docs = config.get("num_docs")
+    if not num_docs:
+        num_docs = 2
+    retriever = db.as_retriever(search_type=search_type, search_kwargs={"k":num_docs})
     #documents = retriever.get_relevant_documents(query=input_text)
 
     ##  --------------------------------------------------------------------------------------------------------------------------------
@@ -57,25 +87,11 @@ def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
     ##  --------------------------------------------------------------------------------------------------------------------------------
     cb_llm = cbLLM()
     if not cb_llm:
-        errMsg = f"ERR003. Non ho potuto caricare la LLM"
-        logging.info(errMsg)
-        ret = {
-            "answer": errMsg,
-            "documents" : [],
-            "chat_history" : []
-         }
-        return ret
-    
+        return _err_msg( errMsg = f"ERR003. Error Loading LLM")
+        
     llm = cb_llm.get_llm()
     if not llm:
-        errMsg = f"ERR003. Non ho potuto caricare la LLM"
-        logging.info(errMsg)
-        ret = {
-            "answer": errMsg,
-            "documents" : [],
-            "chat_history" : []
-         }
-        return ret
+        return _err_msg( errMsg = f"ERR003. Error loading LLM")
     
     ##  --------------------------------------------------------------------------------------------------------------------------------
     ##4 Create Prompt
@@ -83,16 +99,15 @@ def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
       ##### così da fornire gli esatti link che ha usato la LLM. 
       ##### {history} è la memory_key di ConversationBufferMemory
     ##  --------------------------------------------------------------------------------------------------------------------------------
-    prompt = "based on the context please return an answer to user question. I you don't know the answer simply say I don't know. ANSWER:"
-    template = cb_llm.get_prompt_template()
-    input_variables = []
-    if template:
-        input_variables = cb_llm.get_input_variables()
     
-    prompt = PromptTemplate(template=template, input_variables=input_variables)
+    prompt = cb_llm.get_prompt_template()
+    #input_variables = []
+    #if template:
+    #    input_variables = cb_llm.get_input_variables()
+    
+    #prompt = PromptTemplate(template=template, input_variables=input_variables)
     logging.info(prompt)
 
-    
     ##chain = load_qa_chain(llm, chain_type="stuff", memory=memory)
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
@@ -123,6 +138,15 @@ def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
     ret = {
         "answer": response["result"],
         "documents" : json_docs,
+        "chat_history" : []
+    }
+    return ret
+
+def _err_msg( errMsg : str ) :
+    logging.info(errMsg)
+    ret = {
+        "answer": errMsg,
+        "documents" : [],
         "chat_history" : []
     }
     return ret

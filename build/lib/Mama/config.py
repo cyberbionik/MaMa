@@ -110,6 +110,6 @@ class Configuration() :
         
     def get_prompt_template(self):
         return self.prompt_template
-    
     def get_input_variables(self):
         return self.input_variables
+    

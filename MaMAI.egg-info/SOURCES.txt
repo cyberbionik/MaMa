@@ -13,8 +13,6 @@ Mama/__init__.py
 Mama/cbLLM.py
 Mama/chains.py
 Mama/config.py
-Mama/scan_icd.py
-Mama/scanloinc.py
 Mama/train.py
 Mama/utils.py
 Mama/webscraper.py
@@ -36,3 +34,5 @@ dist/MaMAI-2.6-py3-none-any.whl
 dist/MaMAI-2.6.tar.gz
 dist/MaMAI-2.7-py3-none-any.whl
 dist/MaMAI-2.7.tar.gz
+dist/MaMAI-2.8-py3-none-any.whl
+dist/MaMAI-2.8.tar.gz
