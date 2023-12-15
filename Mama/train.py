@@ -23,7 +23,7 @@ def index_documents(folder) -> List[Document] :
     splits = splitter.split_documents(documents=docs)
     return splits
 
-def train_on_documents(kb_dir, kb_id, src_dir="", documents = [], title="", description="", return_summary=False) -> str:
+def train_on_documents(kb_dir, kb_id, src_dir, documents = [], title="", description="", return_summary=False) -> str:
     summary = ""
     logging.debug(documents)
 
@@ -180,7 +180,7 @@ def _save_vector_store(kb_dir, kb_id, documents, title, description):
             faiss.add_documents(documents=documents)
            
         else:
-            faiss = FAISS.from_documents(documents=[documents[0]], embedding=embeddings)
+            faiss = FAISS.from_documents(documents=documents, embedding=embeddings) #TODO: Capire come mai c'era [documents[0]]
 
         logging.debug("Saving index...")
         faiss.save_local(kb_path)

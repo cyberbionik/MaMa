@@ -1,5 +1,7 @@
 import logging
 import os
+from operator import itemgetter
+from typing import Any
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.schema import messages_from_dict, messages_to_dict
@@ -8,9 +10,15 @@ from Mama.utils import get_session, save_chat_history
 from langchain.memory import ConversationBufferMemory
 from langchain.memory.chat_message_histories.in_memory import ChatMessageHistory
 from Mama.cbLLM import cbLLM
-from Mama.config import Configuration
+from langchain.prompts import PromptTemplate
+from langchain.schema.runnable import RunnablePassthrough
+from langchain.schema import StrOutputParser
+from langchain.schema.runnable import RunnableParallel
 
 ### https://python.langchain.com/docs/use_cases/question_answering/ 
+
+session = {}
+chat_history_len = 0
 
 def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
     """
@@ -35,9 +43,10 @@ def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
         }
 
     configurations (from db.json):
-        search_type: serach_type parameter for retriever
-        num_docs: number of docs to retrieve from Vector Store
-        prompt: from db.json
+        SESSION:
+            search_type: serach_type parameter for retriever
+            num_docs: number of docs to retrieve from Vector Store
+            prompt: prompt template 
     """
 
     ##  --------------------------------------------------------------------------------------------------------------------------------
@@ -45,6 +54,7 @@ def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
     ##  --------------------------------------------------------------------------------------------------------------------------------
     chat_history = []
 
+    global session
     session = get_session(user_id, session_id)
     if not session:
         return _err_msg("No Session")
@@ -60,30 +70,17 @@ def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
     else:
         return _err_msg(errMsg = f"ERR003. Error Loading Knowledge base {kb}")
 
-    config = Configuration()
-    search_type = config.get("search_type")
+    search_type = session.get("search_type", "")
     if not search_type:
         search_type = "similarity"
-    num_docs = config.get("num_docs")
+    num_docs = session.get("num_docs", "")
     if not num_docs:
         num_docs = 2
     retriever = db.as_retriever(search_type=search_type, search_kwargs={"k":num_docs})
     #documents = retriever.get_relevant_documents(query=input_text)
 
     ##  --------------------------------------------------------------------------------------------------------------------------------
-    ##2 Reconstruct Memory
-    ##  --------------------------------------------------------------------------------------------------------------------------------
-    chat_array = session["chat_history"]
-    # Se ci sono più di N conversazioni, manteniamo solo le ultime 20
-    if len(chat_array) > chat_history_len:
-        chat_array = chat_array[- chat_history_len:]
-
-    retrieved_messages = messages_from_dict(chat_array)
-    memory = ConversationBufferMemory(chat_memory=ChatMessageHistory(messages=retrieved_messages), memory_key="history", input_key="question")
-    memory.parse_obj(chat_array)
-
-    ##  --------------------------------------------------------------------------------------------------------------------------------
-    ##3 Create LLM
+    ##2 Create LLM
     ##  --------------------------------------------------------------------------------------------------------------------------------
     cb_llm = cbLLM()
     if not cb_llm:
@@ -100,43 +97,46 @@ def get_response(user_id, session_id, input_text, kb_dir, chat_history_len) :
       ##### {history} è la memory_key di ConversationBufferMemory
     ##  --------------------------------------------------------------------------------------------------------------------------------
     
-    prompt = cb_llm.get_prompt_template()
-    #input_variables = []
-    #if template:
-    #    input_variables = cb_llm.get_input_variables()
+    template = session.get("prompt_template", "")
+    rag_prompt_custom = PromptTemplate.from_template(template)
+    logging.info(rag_prompt_custom)
+    rag_chain_from_docs = (
+        {
+            "context": lambda input: format_docs(input["documents"]),
+            "question": itemgetter("question"),
+            "chat_history" : itemgetter("chat_history")
+        }
+        | rag_prompt_custom
+        | llm
+        | StrOutputParser()
+    )
+    rag_chain_with_source = RunnableParallel(
+        {"documents": retriever, "question": RunnablePassthrough(), "chat_history" : ret_chat}
+    ) | {
+        "documents": lambda input: [doc for doc in input["documents"]],
+        "answer": rag_chain_from_docs,
+    }
+
+    response =rag_chain_with_source.invoke(input_text)
     
-    #prompt = PromptTemplate(template=template, input_variables=input_variables)
-    logging.info(prompt)
-
-    ##chain = load_qa_chain(llm, chain_type="stuff", memory=memory)
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=retriever, 
-        chain_type="stuff", 
-        return_source_documents=True, 
-        chain_type_kwargs={
-            "prompt": prompt,
-            "verbose": True,
-            "memory" : memory
-        })
-    response = qa_chain({"query": input_text})
-
     ##5 Save Memory
+    retrieved_messages = messages_from_dict(session["chat_history"])
+    memory = ConversationBufferMemory(chat_memory=ChatMessageHistory(messages=retrieved_messages), memory_key="history", input_key="question")
     memory.chat_memory.add_user_message(input_text)
-    memory.chat_memory.add_ai_message(response["result"])
+    memory.chat_memory.add_ai_message(response["answer"])
     dict = messages_to_dict(memory.chat_memory.messages)
     save_chat_history(user_id, session_id, dict)
 
     ##6 Return Result
     json_docs = []
-    docs = response["source_documents"]
+    docs = response['documents']
     for document in docs:
        json_docs.append({
            "page_content":document.page_content,
-           "source" : document.metadata["source"]
+           "source" : document.metadata['source']
         })
     ret = {
-        "answer": response["result"],
+        "answer": response["answer"],
         "documents" : json_docs,
         "chat_history" : []
     }
@@ -150,3 +150,23 @@ def _err_msg( errMsg : str ) :
         "chat_history" : []
     }
     return ret
+
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+
+def format_chat_history():
+    chat_array = session["chat_history"]
+    # Se ci sono più di N conversazioni, manteniamo solo le ultime 20
+    if len(chat_array) > chat_history_len:
+        chat_array = chat_array[- chat_history_len:]
+   
+    formatted_messages = []
+    for message in chat_array:
+        if "data" in message and "content" in message["data"]:
+            formatted_messages.append(f'{message["type"]}: {message["data"]["content"]}')
+    print(formatted_messages)
+    return ', '.join(formatted_messages)
+
+def ret_chat(x : Any):
+    return format_chat_history()

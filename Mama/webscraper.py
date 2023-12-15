@@ -10,11 +10,10 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from urllib3 import disable_warnings
 from Mama.train import train_on_documents
 from langchain.vectorstores import FAISS
-#from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.embeddings import HuggingFaceEmbeddings
 from urllib3.exceptions import InsecureRequestWarning
 
-def links_crawler(root_url, depth, tag_name, attributes):
+def links_crawler(root_url, base_url, depth, tag_name, attributes):
     if not root_url or not depth:
         logging.info("No root_url")
         return
@@ -22,7 +21,7 @@ def links_crawler(root_url, depth, tag_name, attributes):
     logging.info("------------------------------------------------------------")
     logging.info(f"STARTING CRAWLING LINKS FOR {root_url}")
 
-    valid_links, discarded_links, ret_visited = _crawl(root_url=root_url, url=root_url, current_depth=depth, tag_name=tag_name, attributes=attributes)
+    valid_links, discarded_links, ret_visited = _crawl(root_url=root_url, base_url=base_url, url=root_url, current_depth=depth, tag_name=tag_name, attributes=attributes)
    
     # Salva i link in file
     with open('crawled_links.json', 'w') as json_file:
@@ -89,7 +88,7 @@ def process_single_url(kb_dir, kb_id, link):
 
     return summary
 
-def process_urls(kb, title, description):
+def process_urls(kb_dir, kb_id, title, description):
     skipped_links =  []
     splitted_links = []
 
@@ -112,7 +111,7 @@ def process_urls(kb, title, description):
 
     try:
         if len(splitted_links) >0 :
-            train_on_documents(kb, splitted_links, title=title, description=description, return_summary=False)
+            train_on_documents(kb_dir=kb_dir, kb_id=kb_id, src_dir='', documents=splitted_links, title=title, description=description, return_summary=False)
         
     except Exception as e:
         logging.info(f"Errore nel caricare il le URLs: {e}")
@@ -213,7 +212,7 @@ def build_absolute_url(root_url, link):
         return ret_link
     
 # Funzione ausiliaria ricorsiva per navigare nei link
-def _crawl(root_url, url, current_depth:int, tag_name, attributes):
+def _crawl(root_url, base_url, url, current_depth:int, tag_name, attributes):
     valid_links = set()
     discarded_links = set()
     visited_links = set()
@@ -236,17 +235,17 @@ def _crawl(root_url, url, current_depth:int, tag_name, attributes):
         l_links = page.find_all('a', href=True) # type: ignore
         logging.info("- Level " + str(current_depth) + " ---- ROOT = "+url+" *** NUM OF LINKS="+str(len(l_links))+" ***" )
         for a_tag in l_links:
-            link = build_absolute_url(root_url, a_tag['href'])
+            link = build_absolute_url(base_url, a_tag['href'])
             if not link:
                 continue
                     
             # Controlla se il link è già stato visitato
             if not visited_links or link not in visited_links:
-                if isValidLink(link, root_url):
+                if isValidLink(link, base_url):
                     valid_links.add(link)
                 else:
                     discarded_links.add(link)
-                ret_valid, ret_discarded, ret_visited = _crawl(root_url=root_url, url=link, current_depth=current_depth-1, tag_name=tag_name, attributes=attributes)
+                ret_valid, ret_discarded, ret_visited = _crawl(root_url=root_url, base_url=base_url, url=link, current_depth=current_depth-1, tag_name=tag_name, attributes=attributes)
                 if valid_links and ret_valid:
                     valid_links.update(ret_valid)
                 if discarded_links and ret_discarded:

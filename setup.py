@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="MaMAI",
-    version="3",
+    version="3.3",
     packages=find_packages(),
     install_requires=[
         'langchain',
